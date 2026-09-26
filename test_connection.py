@@ -1,5 +1,5 @@
-from src.salesforce_cs_automation.auth import authenticate
-from src.salesforce_cs_automation.client import SalesforceClient
+from salesforce_cs_automation.auth import authenticate
+from salesforce_cs_automation.client import SalesforceClient
 
 
 def main() -> None:

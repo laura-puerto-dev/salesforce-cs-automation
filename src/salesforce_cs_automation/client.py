@@ -62,3 +62,61 @@ class SalesforceClient:
         """
 
         return self.query(soql)
+
+    def create_case(
+        self,
+        subject: str,
+        description: str,
+        priority: str = "Medium",
+        origin: str = "Web",
+    ) -> str:
+        """Create a Salesforce Case and return its ID."""
+        url = f"{self.instance_url}/services/data/{self.API_VERSION}/sobjects/Case"
+
+        payload = {
+            "Subject": subject,
+            "Description": description,
+            "Status": "New",
+            "Priority": priority,
+            "Origin": origin,
+        }
+
+        response = self.session.post(
+            url,
+            json=payload,
+            timeout=30,
+        )
+        response.raise_for_status()
+
+        return response.json()["id"]
+
+    def update_case(
+        self,
+        case_id: str,
+        *,
+        status: str | None = None,
+        priority: str | None = None,
+    ) -> None:
+        """Update the status or priority of a Salesforce Case."""
+        payload: dict[str, str] = {}
+
+        if status is not None:
+            payload["Status"] = status
+
+        if priority is not None:
+            payload["Priority"] = priority
+
+        if not payload:
+            raise ValueError("At least one field must be provided.")
+
+        url = (
+            f"{self.instance_url}/services/data/"
+            f"{self.API_VERSION}/sobjects/Case/{case_id}"
+        )
+
+        response = self.session.patch(
+            url,
+            json=payload,
+            timeout=30,
+        )
+        response.raise_for_status()

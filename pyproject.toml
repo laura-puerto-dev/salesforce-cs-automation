@@ -3,12 +3,15 @@ name = "salesforce-cs-automation"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "ruff>=0.16.9",

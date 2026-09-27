@@ -8,7 +8,7 @@ Customer Success workflow automation using Python, FastAPI, n8n, and Salesforce.
 
 Automate the intake of Customer Success support requests and create corresponding Salesforce Cases.
 
-The intended workflow uses n8n to receive and validate incoming requests, a Python API to handle Salesforce integration, and OAuth Client Credentials for service-to-service authentication.
+The workflow uses n8n to receive and validate incoming requests, a Python API to handle Salesforce integration, and OAuth Client Credentials for service-to-service authentication.
 
 ## Current Status
 
@@ -25,11 +25,15 @@ The intended workflow uses n8n to receive and validate incoming requests, a Pyth
 
 * Local n8n workflow with webhook intake, input validation, and authenticated HTTP requests to FastAPI
 * Complete n8n → FastAPI → Salesforce workflow, including successful Case creation in Salesforce
+* Webhook responses that wait for downstream processing and return the actual API result
+* Separate response paths for successful Case creation, workflow validation errors, and HTTP errors returned by FastAPI
+* Exported n8n workflow available in `n8n/customer-success-case-intake.json`
 
 **Planned:**
 
-* Improve webhook responses and failure handling
+* Handle transport failures, such as FastAPI being unavailable
 * Add a user-facing support form
+* Improve retry handling, idempotency, and observability
 
 ## Architecture
 
@@ -39,6 +43,7 @@ Support request
 n8n webhook
       ↓
 Input validation
+      ├── Invalid → HTTP 400
       ↓
 FastAPI POST /cases
       ├── API key validation
@@ -47,9 +52,15 @@ FastAPI POST /cases
               Salesforce REST API
                     ↓
                 Create Case
+                    ↓
+           Return API response
+              ├── Success → HTTP 201
+              └── API error → Forward HTTP status and body
 ```
 
 n8n handles workflow orchestration, while FastAPI owns the Salesforce integration and provides an independently validated API boundary.
+
+The webhook waits for downstream processing and returns the corresponding response through dedicated Respond to Webhook nodes.
 
 ## Local Development
 
@@ -62,7 +73,7 @@ uv sync
 Copy-Item .env.example .env
 ```
 
-Configure your Salesforce credentials and generate a private `CS_API_KEY` in `.env`. Never commit this file.
+Configure your own Salesforce credentials and generate a private `CS_API_KEY` in `.env`. Never commit this file.
 
 Start FastAPI:
 
@@ -78,7 +89,30 @@ docker compose up -d
 
 The API is available at `http://127.0.0.1:8000`, and n8n at `http://localhost:5678`.
 
-The n8n workflow must be configured separately before running the complete integration.
+### n8n Workflow Setup
+
+Import `n8n/customer-success-case-intake.json` into your local n8n instance.
+
+Create a **Header Auth** credential with the following configuration:
+
+* **Name:** `X-API-Key`
+* **Value:** the same private `CS_API_KEY` configured in your `.env` file
+
+Assign this credential to the `FastAPI - Create Case` HTTP Request node. The exported workflow contains a reference to the original n8n credential, but does not include its secret value.
+
+The HTTP Request node uses `http://host.docker.internal:8000/cases` to reach FastAPI from the n8n Docker container.
+
+The workflow is exported with `"active": false`. For local testing, use n8n's **Execute workflow** button and send requests to the test webhook:
+
+```text
+http://localhost:5678/webhook-test/customer-support
+```
+
+In test mode, the webhook must be registered again before each new execution.
+
+To use the production webhook, activate the workflow in n8n.
+
+Each developer must use their own Salesforce organization, OAuth application credentials, and API key. No live credentials are included in the repository.
 
 ## Quality Checks
 

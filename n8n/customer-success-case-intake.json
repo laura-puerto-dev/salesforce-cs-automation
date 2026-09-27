@@ -1,0 +1,273 @@
+{
+  "name": "Customer Success - Case Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.body}}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -32
+      ],
+      "id": "530c3ec2-7ea1-47bd-83b9-9c1cf6fb4110",
+      "name": "Respond - Case Created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        160
+      ],
+      "id": "8a112380-462b-4a03-9029-25920a44915d",
+      "name": "Respond - API Error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ca8daceb-0f4e-4aec-945e-080773aef6a8",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        160
+      ],
+      "id": "27831cf4-a16f-4481-b428-05f57b8f0246",
+      "name": "IF - Valid Request"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        256
+      ],
+      "id": "367f870c-8d6d-4508-b959-59411605aeaa",
+      "name": "Respond - Validation Error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3c3c52b2-b754-424a-bac1-9fa3d26b808b",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": "201",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        64
+      ],
+      "id": "0a517852-4169-443a-900f-b6466a7f4b70",
+      "name": "IF - Case Created (201)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-support",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        160
+      ],
+      "id": "b3ffd689-b746-4785-8a35-59317c268a08",
+      "name": "Webhook - Case Intake",
+      "webhookId": "c8b49454-d7b2-4d34-be9b-c22170e896c8"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map((item) => {\n  const body = item.json.body ?? {};\n\n  const subject = String(body.subject ?? \"\").trim();\n  const description = String(body.description ?? \"\").trim();\n  const priority = String(body.priority ?? \"Medium\").trim();\n  const origin = String(body.origin ?? \"Web\").trim();\n\n  let error = null;\n\n  if (!subject) {\n    error = \"Subject is required\";\n  } else if (!description) {\n    error = \"Description is required\";\n  } else if (![\"High\", \"Medium\", \"Low\"].includes(priority)) {\n    error = `Invalid priority: ${priority}`;\n  } else if (![\"Web\", \"Phone\", \"Email\"].includes(origin)) {\n    error = `Invalid origin: ${origin}`;\n  }\n\n  if (error) {\n    return {\n      json: {\n        valid: false,\n        error,\n      },\n    };\n  }\n\n  return {\n    json: {\n      valid: true,\n      subject,\n      description,\n      priority,\n      origin,\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        160
+      ],
+      "id": "bb17cf8e-43fa-4370-af76-c85b2c0dae35",
+      "name": "Validate & Normalize Case"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/cases",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  subject: $json.subject,\n  description: $json.description,\n  priority: $json.priority,\n  origin: $json.origin\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        64
+      ],
+      "id": "59fa73a5-89db-4849-9951-796cec6a33c8",
+      "name": "FastAPI - Create Case",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WpaHd7IPQmubWW13",
+          "name": "Header Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "IF - Valid Request": {
+      "main": [
+        [
+          {
+            "node": "FastAPI - Create Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Case Created (201)": {
+      "main": [
+        [
+          {
+            "node": "Respond - Case Created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - API Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Case Intake": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize Case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalize Case": {
+      "main": [
+        [
+          {
+            "node": "IF - Valid Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FastAPI - Create Case": {
+      "main": [
+        [
+          {
+            "node": "IF - Case Created (201)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fab8aa96-b35c-4ae4-ba5e-18d0ec76d28b",
+  "meta": {
+    "instanceId": "cc6dbce70ff5b0092687222cb44af1c120abb95e3048fbfe1be87514a82de226"
+  },
+  "nodeGroups": [],
+  "id": "MNdUUsFljm9Jtp6W",
+  "tags": []
+}

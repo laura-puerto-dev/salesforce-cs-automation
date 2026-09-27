@@ -135,3 +135,34 @@ def authenticate() -> dict:
         )
 
     return response.json()
+
+
+def authenticate_service() -> dict[str, str]:
+    """Authenticate with Salesforce using Client Credentials."""
+    load_dotenv()
+
+    client_id = os.environ["SALESFORCE_CLIENT_ID"]
+    client_secret = os.environ["SALESFORCE_CLIENT_SECRET"]
+    instance_url = os.environ["SALESFORCE_INSTANCE_URL"].rstrip("/")
+
+    response = requests.post(
+        f"{instance_url}/services/oauth2/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+
+    credentials = response.json()
+    access_token = credentials.get("access_token")
+
+    if not isinstance(access_token, str) or not access_token:
+        raise RuntimeError("Salesforce did not return an access token.")
+
+    return {
+        "access_token": access_token,
+        "instance_url": credentials.get("instance_url", instance_url),
+    }

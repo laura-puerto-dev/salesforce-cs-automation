@@ -21,14 +21,13 @@ The intended workflow uses n8n to receive and validate incoming requests, a Pyth
 * API key protection for `POST /cases`
 * Unit tests covering successful requests, validation, authentication, and integration errors
 
-**Implemented but awaiting full integration validation:**
+**Implemented and validated end to end:**
 
-* Local n8n workflow with webhook intake, input validation, and HTTP requests to FastAPI
+* Local n8n workflow with webhook intake, input validation, and authenticated HTTP requests to FastAPI
+* Complete n8n → FastAPI → Salesforce workflow, including successful Case creation in Salesforce
 
 **Planned:**
 
-* Configure n8n to send the API key securely
-* Validate the complete n8n → FastAPI → Salesforce workflow
 * Improve webhook responses and failure handling
 * Add a user-facing support form
 

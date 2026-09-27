@@ -35,7 +35,7 @@ Salesforce Case
 
 The current workflow uses HTTP requests to simulate a future support form. A user-facing interface has not been implemented.
 
-The n8n workflow and FastAPI endpoint have been developed separately. The complete flow still requires validation after configuring n8n to send the API key.
+The complete n8n → FastAPI → Salesforce workflow has been validated end to end using an authenticated HTTP request from n8n. Successful Salesforce Case creation was confirmed in the Salesforce Developer Edition organization.
 
 ## 2. Why n8n and FastAPI?
 
@@ -83,7 +83,7 @@ The API key is stored in the local `.env` file and must not be committed to vers
 
 The key identifies an authorized service client, not an individual user. It is suitable for the current n8n-to-FastAPI integration, but it does not provide user-level identity, permissions, rotation, or audit trails.
 
-**Current limitation:** n8n has not yet been configured to send the key securely. The public n8n webhook is a separate entry point and requires its own security assessment.
+n8n sends the API key using a Header Auth credential rather than storing it directly in the workflow. The public n8n webhook is a separate entry point and requires its own security assessment.
 
 ## 5. Validation and API Contract
 
@@ -130,7 +130,7 @@ Mocks allow the unit tests to run without live Salesforce credentials or externa
 
 Manual scripts have also been used to validate OAuth and Salesforce Case operations against a Salesforce Developer Edition organization.
 
-The complete n8n-to-FastAPI-to-Salesforce workflow must be tested again after configuring n8n's API key.
+The complete n8n-to-FastAPI-to-Salesforce workflow has been manually validated with n8n's API key configured. The test confirmed successful execution in n8n and creation of the corresponding Case in Salesforce.
 
 The project uses pytest, Ruff, and Mypy for automated quality checks.
 
@@ -180,7 +180,7 @@ Before any public deployment, the system would require a review of network expos
 
 ## 10. Next Steps
 
-The immediate next stage is to configure n8n to send the API key using its credential-management facilities, then validate the complete workflow against Salesforce.
+The authenticated n8n-to-FastAPI-to-Salesforce workflow has been validated end to end. The next stage is to make the n8n webhook return the actual processing outcome rather than responding before downstream processing finishes.
 
 Subsequent work will address accurate webhook responses, error handling, operational visibility, and a user-facing support form.
 

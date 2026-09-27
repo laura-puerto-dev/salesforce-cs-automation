@@ -15,7 +15,9 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_receive_case() -> None:
+def test_receive_case(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
+
     credentials = {
         "access_token": "fake-token",
         "instance_url": "https://example.my.salesforce.com",
@@ -34,6 +36,7 @@ def test_receive_case() -> None:
 
         response = client.post(
             "/cases",
+            headers={"X-API-Key": "test-api-key"},
             json={
                 "subject": "Booking confirmation not received",
                 "description": "Customer did not receive confirmation.",
@@ -59,9 +62,11 @@ def test_receive_case() -> None:
     )
 
 
-def test_receive_case_requires_subject() -> None:
+def test_receive_case_requires_subject(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
     response = client.post(
         "/cases",
+        headers={"X-API-Key": "test-api-key"},
         json={
             "description": "Customer did not receive confirmation.",
         },
@@ -70,9 +75,11 @@ def test_receive_case_requires_subject() -> None:
     assert response.status_code == 422
 
 
-def test_receive_case_rejects_invalid_priority() -> None:
+def test_receive_case_rejects_invalid_priority(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
     response = client.post(
         "/cases",
+        headers={"X-API-Key": "test-api-key"},
         json={
             "subject": "Booking issue",
             "description": "Customer reports an issue.",
@@ -83,13 +90,15 @@ def test_receive_case_rejects_invalid_priority() -> None:
     assert response.status_code == 422
 
 
-def test_receive_case_handles_authentication_error() -> None:
+def test_receive_case_handles_authentication_error(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
     with patch(
         "salesforce_cs_automation.api.authenticate_service",
         side_effect=requests.exceptions.HTTPError("401 Unauthorized"),
     ):
         response = client.post(
             "/cases",
+            headers={"X-API-Key": "test-api-key"},
             json={
                 "subject": "Booking issue",
                 "description": "Customer reports an issue.",
@@ -100,7 +109,8 @@ def test_receive_case_handles_authentication_error() -> None:
     assert response.json() == {"detail": "Salesforce integration failed."}
 
 
-def test_receive_case_handles_creation_error() -> None:
+def test_receive_case_handles_creation_error(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
     credentials = {
         "access_token": "fake-token",
         "instance_url": "https://example.my.salesforce.com",
@@ -123,6 +133,7 @@ def test_receive_case_handles_creation_error() -> None:
 
         response = client.post(
             "/cases",
+            headers={"X-API-Key": "test-api-key"},
             json={
                 "subject": "Booking issue",
                 "description": "Customer reports an issue.",
@@ -134,13 +145,15 @@ def test_receive_case_handles_creation_error() -> None:
     mock_client.create_case.assert_called_once()
 
 
-def test_receive_case_handles_missing_token() -> None:
+def test_receive_case_handles_missing_token(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
     with patch(
         "salesforce_cs_automation.api.authenticate_service",
         side_effect=RuntimeError("Salesforce did not return an access token."),
     ):
         response = client.post(
             "/cases",
+            headers={"X-API-Key": "test-api-key"},
             json={
                 "subject": "Booking issue",
                 "description": "Customer reports an issue.",
@@ -149,3 +162,42 @@ def test_receive_case_handles_missing_token() -> None:
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Salesforce integration failed."}
+
+
+def test_receive_case_rejects_missing_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
+
+    with patch(
+        "salesforce_cs_automation.api.authenticate_service",
+    ) as mock_authenticate:
+        response = client.post(
+            "/cases",
+            json={
+                "subject": "Booking issue",
+                "description": "Customer reports an issue.",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or missing API key"}
+    mock_authenticate.assert_not_called()
+
+
+def test_receive_case_rejects_invalid_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("CS_API_KEY", "test-api-key")
+
+    with patch(
+        "salesforce_cs_automation.api.authenticate_service",
+    ) as mock_authenticate:
+        response = client.post(
+            "/cases",
+            headers={"X-API-Key": "wrong-api-key"},
+            json={
+                "subject": "Booking issue",
+                "description": "Customer reports an issue.",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or missing API key"}
+    mock_authenticate.assert_not_called()

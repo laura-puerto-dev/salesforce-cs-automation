@@ -1,7 +1,10 @@
+import hmac
+import os
 from typing import Literal
 
 import requests
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from salesforce_cs_automation.auth import authenticate_service
@@ -23,7 +26,18 @@ def health() -> dict[str, str]:
 
 
 @app.post("/cases", status_code=201)
-def receive_case(case: CaseRequest) -> dict[str, str]:
+def receive_case(
+    case: CaseRequest,
+    api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, str]:
+    load_dotenv()
+    expected_api_key = os.environ["CS_API_KEY"]
+
+    if api_key is None or not hmac.compare_digest(api_key, expected_api_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key",
+        )
     try:
         credentials = authenticate_service()
 

@@ -27,19 +27,20 @@ FastAPI POST /cases
       +-- API key validation
       |
       +-- Salesforce OAuth Client Credentials
+      |             |
+      |             v
+      |       Salesforce REST API
+      |             |
+      |             v
+      |       Salesforce Case
       |
-      v
-Salesforce REST API
+      +-- HTTP response
+      |      |
+      |      +-- Success --> HTTP 201
+      |      |
+      |      +-- API error --> Forward status and body
       |
-      v
-Salesforce Case
-      |
-      v
-Return API response through n8n
-      |
-      +-- Success --> HTTP 201
-      |
-      +-- API error --> Forward status and body
+      +-- Connection failure --> HTTP 503
 ```
 
 The current workflow uses HTTP requests to simulate a future support form. A user-facing interface has not been implemented.
@@ -47,6 +48,8 @@ The current workflow uses HTTP requests to simulate a future support form. A use
 The complete n8n → FastAPI → Salesforce workflow has been validated end to end using an authenticated HTTP request from n8n. Successful Salesforce Case creation was confirmed in the Salesforce Developer Edition organization.
 
 The n8n webhook waits for downstream processing and returns the corresponding result through dedicated Respond to Webhook nodes.
+
+The workflow also handles a tested connection-failure scenario. When FastAPI is stopped and n8n cannot connect to it, the HTTP Request node routes the execution error to a dedicated response node that returns `503 Service Unavailable`.
 
 The workflow is exported in `n8n/customer-success-case-intake.json` for local import and configuration.
 
@@ -153,15 +156,18 @@ Manual scripts have also been used to validate OAuth and Salesforce Case operati
 
 The complete n8n-to-FastAPI-to-Salesforce workflow has been manually validated with n8n's API key configured. The test confirmed successful execution in n8n and creation of the corresponding Case in Salesforce.
 
-Additional manual end-to-end tests verified the webhook response paths:
+Additional manual tests covered the webhook response paths:
 
 * A valid request returned `201 Created` with the Salesforce Case ID after successful creation.
 * An invalid priority was rejected by n8n and returned a validation error without reaching FastAPI.
 * A temporary invalid FastAPI endpoint returned `404 Not Found`; n8n preserved both the HTTP status code and the response body through its API error branch.
+* With FastAPI stopped, a valid webhook request returned `503 Service Unavailable` with the configured JSON response through the dedicated execution-error branch.
 
-These tests validate application-level HTTP responses. Transport failures, such as FastAPI being unavailable, have not yet been tested or handled.
+The `503` test confirmed that the workflow handled the observed connection-refused scenario without exposing internal connection details to the caller.
 
 The project uses pytest, Ruff, and Mypy for automated quality checks.
+
+The n8n workflow response paths have been tested manually. Automated workflow-level tests and broader network-failure scenarios remain outside the current test suite.
 
 ## 8. Current Reliability Limitations
 
@@ -169,19 +175,24 @@ The current implementation intentionally favors a small, understandable integrat
 
 ### Webhook responses
 
-The n8n webhook is configured to respond through dedicated Respond to Webhook nodes rather than returning an immediate response.
+**Decision:** Use dedicated Respond to Webhook nodes to return the actual processing outcome.
 
-The workflow has three response paths:
+The n8n webhook is configured to wait for downstream processing rather than returning an immediate response.
+
+The workflow has four response paths:
 
 * **Successful Case creation:** returns `201 Created` and the response body received from FastAPI.
 * **n8n validation failure:** returns `400 Bad Request` with the validation error.
 * **FastAPI HTTP error:** forwards the HTTP status code and response body received from FastAPI.
+* **Connection failure:** returns `503 Service Unavailable` with a controlled JSON response.
 
-The successful creation and HTTP error paths have been manually validated end to end. Workflow validation errors have also been tested.
+The HTTP Request node uses **Never Error** and **Include Response Headers and Status** so HTTP errors can be inspected and forwarded through the normal output.
 
-**Remaining limitation:** Network and transport failures, such as FastAPI being unreachable, can still interrupt workflow execution without a controlled webhook response.
+It also uses **Continue (using error output)** so execution errors, including the tested connection-refused scenario, follow a separate path to `Respond - Service Unavailable`.
 
-**Planned:** Add explicit transport-error handling and test the resulting webhook response.
+The successful creation, FastAPI HTTP error, and connection-failure paths have been manually validated. Workflow validation errors have also been tested.
+
+**Remaining limitation:** The error-output branch currently maps execution errors to a generic `503`. Broader scenarios, such as timeouts, DNS failures, and interrupted connections, have not been individually tested. The workflow does not implement automatic recovery or retries.
 
 ### Retries and duplicate Cases
 
@@ -217,16 +228,18 @@ The API key protects `POST /cases`, but it is not a substitute for HTTPS, networ
 
 The `/health` endpoint is intentionally unauthenticated and reports application availability, not Salesforce connectivity.
 
+The controlled `503` response deliberately avoids exposing internal connection-error details to webhook callers.
+
 Before any public deployment, the system would require a review of network exposure, TLS termination, secret management, webhook protection, and operational monitoring.
 
 ## 10. Next Steps
 
-The authenticated n8n-to-FastAPI-to-Salesforce workflow has been validated end to end. The webhook now waits for downstream processing and returns distinct responses for successful Case creation, n8n validation failures, and FastAPI HTTP errors.
+The authenticated n8n-to-FastAPI-to-Salesforce workflow has been validated end to end. The webhook waits for downstream processing and returns distinct responses for successful Case creation, n8n validation failures, FastAPI HTTP errors, and the tested FastAPI connection-failure scenario.
 
 The workflow is exported in `n8n/customer-success-case-intake.json` so it can be imported into another local n8n instance. Each developer must configure their own Header Auth credential and Salesforce environment.
 
-The next stage is to handle transport failures, particularly cases where FastAPI is unavailable, without leaving the webhook request without a controlled response.
+The next stage is to define retry and idempotency behavior before introducing automatic retries.
 
-Subsequent work will address retry behavior, duplicate prevention, operational visibility, and a user-facing support form.
+Subsequent work will address persistent recovery, operational visibility, broader failure testing, and a user-facing support form.
 
 Additional reliability mechanisms should be introduced in response to concrete failure scenarios rather than added speculatively.

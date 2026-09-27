@@ -65,7 +65,7 @@
       "typeVersion": 2.3,
       "position": [
         448,
-        160
+        256
       ],
       "id": "27831cf4-a16f-4481-b428-05f57b8f0246",
       "name": "IF - Valid Request"
@@ -82,7 +82,7 @@
       "typeVersion": 1.5,
       "position": [
         672,
-        256
+        352
       ],
       "id": "367f870c-8d6d-4508-b959-59411605aeaa",
       "name": "Respond - Validation Error"
@@ -133,7 +133,7 @@
       "typeVersion": 2.1,
       "position": [
         0,
-        160
+        256
       ],
       "id": "b3ffd689-b746-4785-8a35-59317c268a08",
       "name": "Webhook - Case Intake",
@@ -147,7 +147,7 @@
       "typeVersion": 2,
       "position": [
         224,
-        160
+        256
       ],
       "id": "bb17cf8e-43fa-4370-af76-c85b2c0dae35",
       "name": "Validate & Normalize Case"
@@ -174,7 +174,7 @@
       "typeVersion": 4.5,
       "position": [
         672,
-        64
+        160
       ],
       "id": "59fa73a5-89db-4849-9951-796cec6a33c8",
       "name": "FastAPI - Create Case",
@@ -183,7 +183,25 @@
           "id": "WpaHd7IPQmubWW13",
           "name": "Header Auth account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  error: \"Service temporarily unavailable\",\n  detail: \"Unable to connect to the case creation service\"\n} }}",
+        "options": {
+          "responseCode": 503
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        256
+      ],
+      "id": "188216c9-b986-4116-9ec8-e0620b5e83e3",
+      "name": "Respond - Service Unavailable"
     }
   ],
   "pinData": {},
@@ -254,6 +272,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Respond - Service Unavailable",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
@@ -263,7 +288,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "fab8aa96-b35c-4ae4-ba5e-18d0ec76d28b",
+  "versionId": "f1ab0db7-51e1-49bb-be6c-a4447dd4cd16",
   "meta": {
     "instanceId": "cc6dbce70ff5b0092687222cb44af1c120abb95e3048fbfe1be87514a82de226"
   },
